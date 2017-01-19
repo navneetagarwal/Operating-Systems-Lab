@@ -1,0 +1,16 @@
+--- original/xv6/sysproc.c	2016-09-24 15:04:06.000000000 +0530
++++ ritwick/xv6/sysproc.c	2016-10-01 23:20:22.000000000 +0530
+@@ -88,3 +88,12 @@
+   release(&tickslock);
+   return xticks;
+ }
++
++int
++sys_getNumFreePages(void)
++{
++	//cprintf("Received Signal\n");
++	int num;
++	num = retNumFreePages();
++	return num;
++}
+\ No newline at end of file

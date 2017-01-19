@@ -1,0 +1,45 @@
+--- original/xv6/kalloc.c	2016-09-24 15:04:06.000000000 +0530
++++ ritwick/xv6/kalloc.c	2016-10-01 23:20:55.000000000 +0530
+@@ -20,6 +20,7 @@
+   struct spinlock lock;
+   int use_lock;
+   struct run *freelist;
++  int numFreePages;
+ } kmem;
+ 
+ // Initialization happens in two phases.
+@@ -70,6 +71,7 @@
+   if(kmem.use_lock)
+     acquire(&kmem.lock);
+   r = (struct run*)v;
++  kmem.numFreePages++;
+   r->next = kmem.freelist;
+   kmem.freelist = r;
+   if(kmem.use_lock)
+@@ -89,8 +91,26 @@
+   r = kmem.freelist;
+   if(r)
+     kmem.freelist = r->next;
++    kmem.numFreePages--;
+   if(kmem.use_lock)
+     release(&kmem.lock);
+   return (char*)r;
+ }
+ 
++//Return Number of Free Pages
++int
++retNumFreePages(void)
++{
++  // cprintf("Reached Function\n");
++  if(kmem.use_lock)
++    acquire(&kmem.lock);
++  
++  int num;
++  num = kmem.numFreePages;
++
++  if(kmem.use_lock)
++    release(&kmem.lock);
++
++  return num;
++}
++

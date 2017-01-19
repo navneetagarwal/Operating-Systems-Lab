@@ -1,0 +1,19 @@
+--- original/xv6/Makefile	2016-09-24 15:04:06.000000000 +0530
++++ ritwick/xv6/Makefile	2016-10-02 18:02:46.193217133 +0530
+@@ -170,6 +170,7 @@
+ 	_usertests\
+ 	_wc\
+ 	_zombie\
++	_testcow\
+ 
+ fs.img: mkfs README $(UPROGS)
+ 	./mkfs fs.img README $(UPROGS)
+@@ -206,7 +207,7 @@
+ 	then echo "-gdb tcp::$(GDBPORT)"; \
+ 	else echo "-s -p $(GDBPORT)"; fi)
+ ifndef CPUS
+-CPUS := 2
++CPUS := 2 
+ endif
+ QEMUOPTS = -hdb fs.img xv6.img -smp $(CPUS) -m 512 $(QEMUEXTRA)
+ 

@@ -1,0 +1,341 @@
+--- original/xv6/vm.c	2016-09-24 15:04:06.000000000 +0530
++++ ritwick/xv6/vm.c	2016-10-02 02:22:54.000000000 +0530
+@@ -6,11 +6,18 @@
+ #include "mmu.h"
+ #include "proc.h"
+ #include "elf.h"
++#include "spinlock.h"
+ 
+ extern char data[];  // defined by kernel.ld
+ pde_t *kpgdir;  // for use in scheduler()
+ struct segdesc gdt[NSEGS];
+ 
++//Spinlock for the pgRefCount
++struct spinlock pgCountLock;
++struct spinlock pgFaultLock;
++// Allocate the array for reference counts
++int pgRefCount[PHYSTOP/PGSIZE] = {0};
++
+ // Set up CPU's kernel segment descriptors.
+ // Run once on entry on each CPU.
+ void
+@@ -81,6 +88,12 @@
+     if(*pte & PTE_P)
+       panic("remap");
+     *pte = pa | perm | PTE_P;
++
++    // //Increase the reference count
++    // // acquire(&pgCountLock);
++    // pgRefCount[PGCOUNTADDR(pa)]++;
++    // // release(&pgCountLock);
++
+     if(a == last)
+       break;
+     a += PGSIZE;
+@@ -89,7 +102,7 @@
+   return 0;
+ }
+ 
+-// There is one page table per process, plus one that's used when
++// Therde is one page table per process, plus one that's used when
+ // a CPU is not running any process (kpgdir). The kernel uses the
+ // current process's page table during system calls and interrupts;
+ // page protection bits prevent user code from using the kernel's
+@@ -148,6 +161,12 @@
+ void
+ kvmalloc(void)
+ {
++  //Init the lock for the pgRefCount[]
++  initlock(&pgCountLock, "pgRefCount Lock");
++
++  initlock(&pgFaultLock, "pgRefFault Lock");
++
++  // cprintf("Ref Count %d\n",pgRefCount[3]);
+   kpgdir = setupkvm();
+   switchkvm();
+ }
+@@ -188,6 +207,12 @@
+   mem = kalloc();
+   memset(mem, 0, PGSIZE);
+   mappages(pgdir, 0, PGSIZE, v2p(mem), PTE_W|PTE_U);
++  
++  acquire(&pgCountLock);
++  //Increase the reference count
++  pgRefCount[PGCOUNTADDR(v2p(mem))]++;
++  release(&pgCountLock);
++  
+   memmove(mem, init, sz);
+ }
+ 
+@@ -235,9 +260,15 @@
+       cprintf("allocuvm out of memory\n");
+       deallocuvm(pgdir, newsz, oldsz);
+       return 0;
++
+     }
+     memset(mem, 0, PGSIZE);
++
+     mappages(pgdir, (char*)a, PGSIZE, v2p(mem), PTE_W|PTE_U);
++    acquire(&pgCountLock);
++    //Increase the reference count
++    pgRefCount[PGCOUNTADDR(v2p(mem))]++;
++    release(&pgCountLock);
+   }
+   return newsz;
+ }
+@@ -264,14 +295,58 @@
+       pa = PTE_ADDR(*pte);
+       if(pa == 0)
+         panic("kfree");
+-      char *v = p2v(pa);
+-      kfree(v);
++
++    // Decrement the ref count
++    int count;
++
++    acquire(&pgCountLock);
++    // acquire(&pgCountLock);
++    count = --pgRefCount[PGCOUNTADDR(pa)];
++    release(&pgCountLock);
++
++    // cprintf("Count %d\n",count);
++    // release(&pgCountLock);
++	
++	if(count==0)
++  	{
++  		char *v = p2v(pa);
++  		kfree(v);
++  	}
++
+       *pte = 0;
+     }
+   }
+   return newsz;
+ }
+ 
++
++// // Free the page table part and the page directory
++// void
++// freevm2(pde_t *pgdir)
++// {
++//   uint i;
++//   if(pgdir == 0)
++//     panic("freevm: no pgdir");
++//   // deallocuvm(pgdir, KERNBASE, 0);
++//   for(i = 0; i < NPDENTRIES; i++){
++//     if(pgdir[i] & PTE_P){
++//     char * v = p2v(PTE_ADDR(pgdir[i]));
++
++//  // -- Dont decrement as this is the frame for the inner page table's page. Not user part !
++    
++//     // int count;
++//     // acquire(&pgCountLock);
++//     // count = --pgRefCount[PGCOUNTADDR(PTE_ADDR(pgdir[i]))];
++//     // release(&pgCountLock);
++//     // if(count == 0);
++ 
++//     kfree(v);
++//     }
++//   }
++//   kfree((char*)pgdir);
++// }
++
++
+ // Free a page table and all the physical memory pages
+ // in the user part.
+ void
+@@ -284,14 +359,23 @@
+   deallocuvm(pgdir, KERNBASE, 0);
+   for(i = 0; i < NPDENTRIES; i++){
+     if(pgdir[i] & PTE_P){
+-      char * v = p2v(PTE_ADDR(pgdir[i]));
+-      kfree(v);
++    char * v = p2v(PTE_ADDR(pgdir[i]));
++
++ // -- Dont decrement as this is the frame for the inner page table's page. Not user part !
++    
++    // int count;
++    // acquire(&pgCountLock);
++    // count = --pgRefCount[PGCOUNTADDR(PTE_ADDR(pgdir[i]))];
++    // release(&pgCountLock);
++    // if(count == 0);
++ 
++    kfree(v);
+     }
+   }
+   kfree((char*)pgdir);
+ }
+ 
+-// Clear PTE_U on a page. Used to create an inaccessible
++// Clear PTE_U on a page. Used to crePTE_ADDR(pgdir[i])ate an inaccessible
+ // page beneath the user stack.
+ void
+ clearpteu(pde_t *pgdir, char *uva)
+@@ -304,6 +388,8 @@
+   *pte &= ~PTE_U;
+ }
+ 
++
++
+ // Given a parent process's page table, create a copy
+ // of it for a child.
+ pde_t*
+@@ -321,11 +407,20 @@
+       panic("copyuvm: pte should exist");
+     if(!(*pte & PTE_P))
+       panic("copyuvm: page not present");
++    
+     pa = PTE_ADDR(*pte);
+     flags = PTE_FLAGS(*pte);
++    
++    flags = flags | PTE_W;
++
+     if((mem = kalloc()) == 0)
+       goto bad;
+     memmove(mem, (char*)p2v(pa), PGSIZE);
++
++    acquire(&pgCountLock);
++    pgRefCount[PGCOUNTADDR(v2p(mem))]++;
++    release(&pgCountLock);
++
+     if(mappages(d, (void*)i, PGSIZE, v2p(mem), flags) < 0)
+       goto bad;
+   }
+@@ -336,6 +431,69 @@
+   return 0;
+ }
+ 
++
++
++
++// Given a parent process's page table, create a copy
++// of it for a child.
++pde_t*
++cowuvm(pde_t *pgdir, uint sz)
++{
++  pde_t *d; 
++  pte_t *pte;
++  uint pa, i, flags;
++  // char *mem;
++
++  if((d = setupkvm()) == 0)
++    return 0;
++  for(i = 0; i < sz; i += PGSIZE){
++    if((pte = walkpgdir(pgdir, (void *) i, 0)) == 0)
++      panic("copyuvm: pte should exist");
++    if(!(*pte & PTE_P))
++      panic("copyuvm: page not present");
++    pa = PTE_ADDR(*pte);
++    flags = PTE_FLAGS(*pte);
++    
++    // if((mem = kalloc()) == 0)
++    //   goto bad;
++    // memmove(mem, (char*)p2v(pa), PGSIZE);
++    
++    //Create new flags for the child
++    uint newFlags;
++    newFlags = flags & (0xfffffffd);
++
++    // if(mappages(d, (void*)i, PGSIZE, v2p(mem), flags) < 0)
++    if(mappages(d, (void*)i, PGSIZE, pa, newFlags) < 0)
++      goto bad;
++
++  	acquire(&pgCountLock);
++    //Increase the reference count
++    pgRefCount[PGCOUNTADDR(pa)]++;
++    release(&pgCountLock);
++
++  }
++
++  //Change the flags of the parent only if the copyuvm is successful
++  for(i =0; i<sz; i+= PGSIZE)
++  {
++  	if((pte = walkpgdir(pgdir, (void *) i, 0)) == 0)
++      panic("copyuvm: pte should exist");
++    if(!(*pte & PTE_P))
++      panic("copyuvm: page not present");
++
++	*pte = *pte & (0xfffffffd);
++  }
++
++  //Flush the TLB cache entries
++  lcr3(v2p(pgdir));
++
++  return d;
++
++bad:
++  freevm(d);
++  return 0;
++}
++
+ //PAGEBREAK!
+ // Map user virtual address to kernel address.
+ char*
+@@ -376,3 +534,66 @@
+   }
+   return 0;
+ }
++
++
++void
++managePageFault()
++{
++	acquire(&pgFaultLock);
++	uint trapAddress = rcr2();
++
++	if(walkpgdir(proc->pgdir,(void *)trapAddress,0)==0)
++	{
++	  // Actual Memory trap
++	  cprintf("Actual memory Trap\n");
++	  kill(0);
++	}
++
++	else
++	{
++	  //Copy On Write
++	  pte_t *pte = walkpgdir(proc->pgdir,(void *)trapAddress,0);
++	  
++	  uint pa = PTE_ADDR(*pte);
++	  // uint flags = PTE_FLAGS(*pte);
++
++	  if(pgRefCount[PGCOUNTADDR(pa)]>1)
++	  {
++	    //There are remaining processes pointing to it
++	    cprintf("CoW\n");
++	    pde_t *npgdir;
++	    if((npgdir=copyuvm(proc->pgdir,proc->sz))==0)
++	    {
++	    	panic("CoW not working\n");
++	    }
++	    else
++	    {
++		    pde_t *oldpgdir = proc->pgdir;
++		    proc->pgdir = npgdir;
++		    lcr3(v2p(proc->pgdir)); 	
++		    freevm(oldpgdir);
++	    }
++	  }
++	  else if(pgRefCount[PGCOUNTADDR(pa)]==1)
++	  {
++	  	cprintf("CoW with 1\n");
++	    //Last process pointing to the memory image
++	    int i;
++	  	for(i = 0; i < proc->sz; i += PGSIZE){
++		    if((pte = walkpgdir(proc->pgdir, (void *) i, 0)) == 0)
++		      panic("copyuvm: pte should exist");
++		    if(!(*pte & PTE_P))
++		      panic("copyuvm: page not present");
++		    // Set the Write Permissions
++		  	*pte = *pte | PTE_W;
++	  	}
++	 	lcr3(v2p(proc->pgdir));
++	  }
++	  else
++	  {
++	   	panic("Something Fishy\n");
++	  }
++	}
++	release(&pgFaultLock);
++	return;
++}
+\ No newline at end of file

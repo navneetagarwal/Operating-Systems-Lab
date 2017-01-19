@@ -1,0 +1,8 @@
+--- original/xv6/syscall.h	2016-09-24 15:04:06.000000000 +0530
++++ ritwick/xv6/syscall.h	2016-09-29 15:46:59.000000000 +0530
+@@ -20,3 +20,4 @@
+ #define SYS_link   19
+ #define SYS_mkdir  20
+ #define SYS_close  21
++#define SYS_getNumFreePages 22
+\ No newline at end of file

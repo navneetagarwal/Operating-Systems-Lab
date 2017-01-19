@@ -1,0 +1,18 @@
+--- original/xv6/syscall.c	2016-09-24 15:04:06.000000000 +0530
++++ ritwick/xv6/syscall.c	2016-09-29 15:46:42.000000000 +0530
+@@ -98,6 +98,7 @@
+ extern int sys_wait(void);
+ extern int sys_write(void);
+ extern int sys_uptime(void);
++extern int sys_getNumFreePages(void);
+ 
+ static int (*syscalls[])(void) = {
+ [SYS_fork]    sys_fork,
+@@ -121,6 +122,7 @@
+ [SYS_link]    sys_link,
+ [SYS_mkdir]   sys_mkdir,
+ [SYS_close]   sys_close,
++[SYS_getNumFreePages] sys_getNumFreePages,
+ };
+ 
+ void

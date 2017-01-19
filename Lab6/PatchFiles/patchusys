@@ -1,0 +1,8 @@
+--- original/xv6/usys.S	2016-09-24 15:04:06.000000000 +0530
++++ ritwick/xv6/usys.S	2016-09-29 15:47:15.000000000 +0530
+@@ -29,3 +29,4 @@
+ SYSCALL(sbrk)
+ SYSCALL(sleep)
+ SYSCALL(uptime)
++SYSCALL(getNumFreePages)
+\ No newline at end of file

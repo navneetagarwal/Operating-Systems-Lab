@@ -1,0 +1,23 @@
+--- original/xv6/defs.h	2016-09-24 15:04:06.000000000 +0530
++++ ritwick/xv6/defs.h	2016-10-02 00:17:28.000000000 +0530
+@@ -66,6 +66,7 @@
+ void            kfree(char*);
+ void            kinit1(void*, void*);
+ void            kinit2(void*, void*);
++int 			retNumFreePages(void);
+ 
+ // kbd.c
+ void            kbdintr(void);
+@@ -172,10 +173,12 @@
+ void            inituvm(pde_t*, char*, uint);
+ int             loaduvm(pde_t*, char*, struct inode*, uint, uint);
+ pde_t*          copyuvm(pde_t*, uint);
++pde_t*          cowuvm(pde_t*, uint);
+ void            switchuvm(struct proc*);
+ void            switchkvm(void);
+ int             copyout(pde_t*, uint, void*, uint);
+ void            clearpteu(pde_t *pgdir, char *uva);
++void			managePageFault();
+ 
+ // number of elements in fixed-size array
+ #define NELEM(x) (sizeof(x)/sizeof((x)[0]))
