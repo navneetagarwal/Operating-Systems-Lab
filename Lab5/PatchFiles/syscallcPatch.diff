@@ -1,0 +1,20 @@
+--- syscall.c	2016-09-24 17:49:22.856443493 +0530
++++ syscall1.c	2016-09-24 17:24:31.847432938 +0530
+@@ -98,6 +98,8 @@
+ extern int sys_wait(void);
+ extern int sys_write(void);
+ extern int sys_uptime(void);
++extern int sys_setprio(void);
++extern int sys_getprio(void);
+ 
+ static int (*syscalls[])(void) = {
+ [SYS_fork]    sys_fork,
+@@ -121,6 +123,8 @@
+ [SYS_link]    sys_link,
+ [SYS_mkdir]   sys_mkdir,
+ [SYS_close]   sys_close,
++[SYS_getprio] sys_getprio,
++[SYS_setprio] sys_setprio,
+ };
+ 
+ void

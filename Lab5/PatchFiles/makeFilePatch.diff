@@ -1,0 +1,12 @@
+--- Makefile	2016-09-24 17:49:22.848443552 +0530
++++ Makefile1	2016-09-24 18:02:23.623255371 +0530
+@@ -170,6 +170,9 @@
+ 	_usertests\
+ 	_wc\
+ 	_zombie\
++	_TestCase1\
++	_TestCase2\
++	_TestCase3\
+ 
+ fs.img: mkfs README $(UPROGS)
+ 	./mkfs fs.img README $(UPROGS)

@@ -1,0 +1,18 @@
+--- user.h	2016-09-24 17:49:22.864443435 +0530
++++ user1.h	2016-09-24 17:24:31.939432526 +0530
+@@ -22,6 +22,8 @@
+ char* sbrk(int);
+ int sleep(int);
+ int uptime(void);
++int setprio(int);
++int getprio(void);
+ 
+ // ulib.c
+ int stat(char*, struct stat*);
+@@ -35,4 +37,4 @@
+ void* memset(void*, int, uint);
+ void* malloc(uint);
+ void free(void*);
+-int atoi(const char*);
++int atoi(const char*);
+\ No newline at end of file

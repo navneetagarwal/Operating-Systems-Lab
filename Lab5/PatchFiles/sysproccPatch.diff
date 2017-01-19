@@ -1,0 +1,22 @@
+--- sysproc.c	2016-09-24 17:49:22.888443259 +0530
++++ sysproc1.c	2016-09-24 17:24:31.943432508 +0530
+@@ -88,3 +88,19 @@
+   release(&tickslock);
+   return xticks;
+ }
++
++int
++sys_setprio(void)
++{
++   int n;
++   if(argint(0, &n) < 0)
++    return -1;
++  proc->priority = n;
++  return 1;
++}
++
++int
++sys_getprio(void)
++{
++  return proc->priority;
++}

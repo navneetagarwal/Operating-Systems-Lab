@@ -1,0 +1,113 @@
+--- proc.c	2016-09-24 17:49:22.876443348 +0530
++++ proc1.c	2016-09-24 17:24:31.839432975 +0530
+@@ -56,6 +56,9 @@
+   }
+   sp = p->kstack + KSTACKSIZE;
+   
++  //Set default priority
++  p->priority=0;
++
+   // Leave room for trap frame.
+   sp -= sizeof *p->tf;
+   p->tf = (struct trapframe*)sp;
+@@ -257,34 +260,82 @@
+ void
+ scheduler(void)
+ {
++  cprintf("Scheduler was Called\n");
+   struct proc *p;
+-
++  // Stores the maximum priority value
++  int maxPriority = -1;
++  // Stores the maximum priority struct
++  struct proc* maxPriorityProc;
++  int found=0;
+   for(;;){
+     // Enable interrupts on this processor.
+     sti();
+ 
+     // Loop over process table looking for process to run.
+     acquire(&ptable.lock);
+-    for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
+-      if(p->state != RUNNABLE)
++    // Used for initialisation of p
++    p=ptable.proc;
++    while(1)
++    {
++      struct proc *q;
++      // Assumption of priority to be non negative so assumed max to be -1 at first
++      maxPriority = -1;
++      maxPriorityProc = p;
++      q=p;
++      // Ensuring Round Robin
++      // Iterate from p to end to find maximum      
++      for(;q<&ptable.proc[NPROC];q++)
++      {
++        if(q->state != RUNNABLE)
+         continue;
+-
+-      // Switch to chosen process.  It is the process's job
+-      // to release ptable.lock and then reacquire it
+-      // before jumping back to us.
+-      proc = p;
+-      switchuvm(p);
+-      p->state = RUNNING;
+-      swtch(&cpu->scheduler, proc->context);
+-      switchkvm();
+-
+-      // Process is done running for now.
+-      // It should have changed its p->state before coming back.
+-      proc = 0;
++        found=1;
++        if(q->priority > maxPriority )
++        {
++          maxPriority = q->priority;
++          maxPriorityProc = q;
++        }     
++      }
++      // Iterate from ptable.proc to p to find maximum
++      for(q = ptable.proc; q<p;q++)
++      {
++        if(q->state != RUNNABLE)
++        continue;
++        found=1;
++        if(q->priority > maxPriority )
++        {
++          maxPriority = q->priority;
++          maxPriorityProc = q;
++        }
++      }
++      if(found==1)
++      {
++        // Change to Highest Priority Process
++        // Switch to chosen process.  It is the process's job
++        // to release ptable.lock and then reacquire it
++        // before jumping back to us.
++        proc=maxPriorityProc;
++        p=maxPriorityProc;
++        switchuvm(p);
++        p->state = RUNNING;
++        swtch(&cpu->scheduler, proc->context);
++        switchkvm();
++        // Process is done running for now.
++        // It should have changed its p->state before coming back.
++        found=0;
++        proc = 0;
++        if(++p < &ptable.proc[NPROC]){}
++        else
++        {
++          p--;
++        }
++      }
++      else
++      {
++        break;
++      }
+     }
+     release(&ptable.lock);
+-
+-  }
++  } 
+ }
+ 
+ // Enter scheduler.  Must hold only ptable.lock

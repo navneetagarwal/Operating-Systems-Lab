@@ -1,0 +1,9 @@
+--- usys.S	2016-09-24 17:49:22.872443377 +0530
++++ usys1.S	2016-09-24 17:24:31.855432903 +0530
+@@ -29,3 +29,5 @@
+ SYSCALL(sbrk)
+ SYSCALL(sleep)
+ SYSCALL(uptime)
++SYSCALL(setprio)
++SYSCALL(getprio)
+\ No newline at end of file
